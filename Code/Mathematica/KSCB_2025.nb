@@ -1,0 +1,78 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* CreatedBy='Mathematica 12.3' *)
+
+(*CacheID: 234*)
+(* Internal cache information:
+NotebookFileLineBreakTest
+NotebookFileLineBreakTest
+NotebookDataPosition[       158,          7]
+NotebookDataLength[      2230,         70]
+NotebookOptionsPosition[      1522,         49]
+NotebookOutlinePosition[      1934,         65]
+CellTagsIndexPosition[      1891,         62]
+WindowFrame->Normal*)
+
+(* Beginning of Notebook Content *)
+Notebook[{
+
+Cell[CellGroupData[{
+Cell["Tutorial on dynamical systems for decision-making", "Title",
+ CellChangeTimes->{{3.960882199200983*^9, 
+  3.9608822484482*^9}},ExpressionUUID->"37defb1b-9f04-45ae-b965-883e511a9f22"],
+
+Cell["\<\
+KSCB 2025 - Based on work by Anastasia Byzayeave and Alessio Franci - Code \
+(with its bugs) and presentation (with its conceptual mistakes) by Marco Fele\
+\>", "Subtitle",
+ CellChangeTimes->{{3.9608822664690695`*^9, 3.9608822983367224`*^9}, {
+  3.960882450424432*^9, 
+  3.9608825068496933`*^9}},ExpressionUUID->"cd9edf5f-db78-400d-9eec-\
+b73ed4a968b5"],
+
+Cell[CellGroupData[{
+
+Cell["Non-linear opinion dynamics model", "Chapter",
+ CellChangeTimes->{{3.960882306810119*^9, 
+  3.9608823163546295`*^9}},ExpressionUUID->"b76cbf58-d800-42e2-9ca9-\
+0fe8bcea1f4f"],
+
+Cell[BoxData[""], "Input",
+ CellChangeTimes->{{3.960882834061431*^9, 
+  3.960882836659725*^9}},ExpressionUUID->"74714e42-137f-4c92-b5db-\
+442e919ea392"]
+}, Open  ]]
+}, Open  ]]
+},
+WindowSize->{1131.75, 315.75},
+WindowMargins->{{1562.25, Automatic}, {-43.5, Automatic}},
+FrontEndVersion->"12.3 for Microsoft Windows (64-bit) (May 11, 2021)",
+StyleDefinitions->"Default.nb",
+ExpressionUUID->"e2f2a826-8b17-47e5-b1a4-18b44034e968"
+]
+(* End of Notebook Content *)
+
+(* Internal cache information *)
+(*CellTagsOutline
+CellTagsIndex->{}
+*)
+(*CellTagsIndex
+CellTagsIndex->{}
+*)
+(*NotebookFileOutline
+Notebook[{
+Cell[CellGroupData[{
+Cell[580, 22, 188, 2, 98, "Title",ExpressionUUID->"37defb1b-9f04-45ae-b965-883e511a9f22"],
+Cell[771, 26, 363, 7, 85, "Subtitle",ExpressionUUID->"cd9edf5f-db78-400d-9eec-b73ed4a968b5"],
+Cell[CellGroupData[{
+Cell[1159, 37, 180, 3, 69, "Chapter",ExpressionUUID->"b76cbf58-d800-42e2-9ca9-0fe8bcea1f4f"],
+Cell[1342, 42, 152, 3, 28, "Input",ExpressionUUID->"74714e42-137f-4c92-b5db-442e919ea392"]
+}, Open  ]]
+}, Open  ]]
+}
+]
+*)
+
