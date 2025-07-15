@@ -5,7 +5,7 @@
 #_____________________________________________________________________________________________________#
 
 # Set up ----
-library(Rcpp)
+library(Rcpp) # In first part of the tutorial, I simulate two models with the Gillespie algorithm implemented in Rcpp. If Rcpp is not set up, don't worry because it is not needed anywhere else 
 library(ggplot2)
 library(data.table)
 
@@ -309,3 +309,407 @@ ggsave("../../figures/example_nod_2.png",
        height = 3,
        width = 5,
        bg = "white")
+
+# Time series 
+# Define the ODE as a function
+nod_ode <- function(time, state, parms) {
+  with(as.list(c(state, parms)), {
+    dydt <- -delta * y + tanh(alpha * y + u)
+    list(dydt)})
+}
+
+# Solve the ODE
+out_nod <- data.table(time = numeric(), y = numeric(), alpha = numeric(), start = numeric())
+for(alpha in c(0.5, 1.5)) {
+  for(start in seq(-1.2, 1.2, by = 0.1)) {
+    out_nod <- out_nod |>
+      rbind((deSolve::ode(y = c(y = start), 
+                          times = seq(0, 10, by = 0.1), 
+                          func = nod_ode, 
+                          parms = c(delta = 1, 
+                                    alpha = alpha, 
+                                    u = 0)) |>
+               as.data.table()
+      )[, ":="(alpha = alpha,
+               start = start)])
+  }
+}
+
+# Plot and save the result
+(p <- ggplot(out_nod) +
+    geom_line(aes(time, y, color = start, group = start), linewidth = 1) +
+    scale_color_viridis_c(option = "mako") +
+    ylab("Decision") +
+    facet_wrap(~alpha) +
+    guides(color = "none") +
+    xlab("Time"))
+
+ggsave("../../figures/nod_time_series.png",
+       p,
+       height = 3,
+       width = 5,
+       bg = "white")
+
+# Elementary bifurcation ----
+## Saddle node ----
+saddle_node <-  data.table(
+  x = seq(-2, 2, by = 0.01)
+)[, ":="(p = x^2,
+         is_stable = ifelse(x < 0, "yes", "no"),
+         eigenvalues = 2 * x)
+  ][order(-p)
+    ][, ":="(appear = rleid(as.factor(round(p, 4))))]
+
+(p <- ggplot(saddle_node) +
+  geom_path(aes(p, x, linetype = is_stable), linewidth = 1) +
+  xlim(c(-4, 4)) +
+  scale_linetype_manual (values = c("dashed", "solid")) +
+    xlab("Parameter p") +
+    ylab("Equilibria x*") +
+  guides(linetype = "none"))
+
+ggsave("../../figures/saddle_node.png",
+       p,
+       height = 3,
+       width = 5,
+       bg = "white")
+
+
+animation <- data.table(
+  appear = max(saddle_node$appear)+1:max(saddle_node$appear)+25,
+  no = NA_real_,
+  yes = NA_real_) |>
+  rbind(saddle_node[, c("eigenvalues", "is_stable", "appear")] |>
+  tidyr::pivot_wider(names_from = "is_stable",
+                     values_from = "eigenvalues")) |>
+    ggplot() +
+  geom_vline(xintercept = 0, color = "gray70", linewidth = 1) +  
+  geom_hline(yintercept = 0, color = "gray70", linewidth = 1) +
+  geom_point(aes(yes, 0), size = 6) +
+  geom_point(aes(no, 0), size = 6) +
+  ylab("Immaginary") +
+  xlab("Real") +
+  xlim(-4, 4) +
+  ylim(-1, 1) +
+  gganimate::transition_reveal(appear) 
+
+anim <- gganimate::animate(animation, 
+                fps = 20, 
+                duration = 5)
+
+gganimate::anim_save("../../figures/saddle_node.gif",
+          width = 5,
+          height = 3,
+          bg = "white")
+
+## Transcritical ----
+transcritical <-  data.table(
+  p = seq(-4, 4, by = 0.1)
+)[, ":="(
+  # find solutions of normal form xp+x^2
+  x_1 = 0,
+  x_2 = -p,
+  # find eigenvalues of Jacobian (first derivative in respect of x in unidimensional case) of normal form at the equilibria
+  eigenvalue_1 = p + 2 * 0, 
+  eigenvalue_2 = p + 2 * -p)
+][order(-p)
+  ][, ":="(appear = rleid(as.factor(round(p, 4))))]
+
+(p <- (transcritical |>
+    melt(id.vars = "p",
+         measure = list(x = c("x_1", "x_2"), eigenvalue = c("eigenvalue_1", "eigenvalue_2")),
+         variable.name = "equ_number")
+    )[, ":="(is_stable = eigenvalue > 0)] |>
+    ggplot() +
+    geom_path(aes(p, x, 
+                  linetype = is_stable,
+                  group = interaction(is_stable, equ_number)
+    ), linewidth = 1) +
+    xlim(c(-4, 4)) +
+    #scale_linetype_manual (values = c("dashed", "solid")) +
+    xlab("Parameter p") +
+    ylab("Equilibria x*") +
+    guides(linetype = "none"))
+
+ggsave("../../figures/transcritical.png",
+       p,
+       height = 3,
+       width = 5,
+       bg = "white")
+
+trans_animation <- ggplot(transcritical) +
+  geom_vline(xintercept = 0, color = "gray70", linewidth = 1) +  
+  geom_hline(yintercept = 0, color = "gray70", linewidth = 1) +
+  geom_point(aes(eigenvalue_1, 0), size = 6) +
+  geom_point(aes(eigenvalue_2, 0), size = 6) +
+  ylab("Immaginary") +
+  xlab("Real") +
+  xlim(-4, 4) +
+  ylim(-1, 1) +
+  gganimate::transition_reveal(appear) 
+
+trans_anim <- gganimate::animate(trans_animation, 
+                           fps = 20, 
+                           duration = 5)
+
+gganimate::anim_save("../../figures/transcritical.gif",
+                     width = 5,
+                     height = 3,
+                     bg = "white")
+
+## Pitchfork ----
+### Supercritical ----
+pitchfork_super <-  data.table(
+  p = seq(-4, 4, by = 0.1)
+)[, ":="(
+  # find solutions of normal form xp-x^3
+  x_1 = 0,
+  x_2 = -sqrt(p),
+  x_3 = sqrt(p),
+  # find eigenvalues of Jacobian (first derivative in respect of x in unidimensional case) of normal form at the equilibria
+  eigenvalue_1 = p - 3 * 0^2, 
+  eigenvalue_2 = p - 3 * (-sqrt(p))^2, 
+  eigenvalue_3 = p - 3 * (sqrt(p))^2)
+][order(-p)
+][, ":="(appear = rleid(as.factor(round(p, 4))))]
+
+(p <- (pitchfork_super |>
+         melt(id.vars = "p",
+              measure = list(x = c("x_1", "x_2", "x_3"), 
+                             eigenvalue = c("eigenvalue_1", "eigenvalue_2", "eigenvalue_3")),
+              variable.name = "equ_number")
+)[, ":="(is_stable = eigenvalue > 0)] |>
+    ggplot() +
+    geom_path(aes(p, x, 
+                  linetype = is_stable,
+                  group = interaction(is_stable, equ_number)
+    ), linewidth = 1) +
+    xlim(c(-4, 4)) +
+    #scale_linetype_manual (values = c("dashed", "solid")) +
+    xlab("Parameter p") +
+    ylab("Equilibria x*") +
+    guides(linetype = "none"))
+
+ggsave("../../figures/supercritical_pitchfork.png",
+       p,
+       height = 3,
+       width = 5,
+       bg = "white")
+
+super_pitch_animation <- ggplot(pitchfork_super) +
+  geom_vline(xintercept = 0, color = "gray70", linewidth = 1) +  
+  geom_hline(yintercept = 0, color = "gray70", linewidth = 1) +
+  geom_point(aes(eigenvalue_1, 0), size = 6) +
+  geom_point(aes(eigenvalue_2, 0), size = 6) +
+  ylab("Immaginary") +
+  xlab("Real") +
+  xlim(-10, 4) +
+  ylim(-1, 1) +
+  gganimate::transition_reveal(appear) 
+
+super_pitch_anim <- gganimate::animate(super_pitch_animation, 
+                                     fps = 20, 
+                                     duration = 5)
+
+gganimate::anim_save("../../figures/supercritical_pitchfork.gif",
+                     width = 5,
+                     height = 3,
+                     bg = "white")
+
+### Subcritical ----
+pitchfork_sub <-  data.table(
+  p = seq(-4, 4, by = 0.1)
+)[, ":="(
+  # find solutions of normal form xp+x^3
+  x_1 = 0,
+  x_2 = -sqrt(-p),
+  x_3 = sqrt(-p),
+  # find eigenvalues of Jacobian (first derivative in respect of x in unidimensional case) of normal form at the equilibria
+  eigenvalue_1 = p + 3 * 0^2, 
+  eigenvalue_2 = p + 3 * (-sqrt(-p))^2, 
+  eigenvalue_3 = p + 3 * (sqrt(-p))^2)
+][order(-p)
+][, ":="(appear = rleid(as.factor(round(p, 4))))]
+
+(p <- (pitchfork_sub |>
+         melt(id.vars = "p",
+              measure = list(x = c("x_1", "x_2", "x_3"), 
+                             eigenvalue = c("eigenvalue_1", "eigenvalue_2", "eigenvalue_3")),
+              variable.name = "equ_number")
+)[, ":="(is_stable = eigenvalue > 0)] |>
+    ggplot() +
+    geom_path(aes(p, x, 
+                  linetype = is_stable,
+                  group = interaction(is_stable, equ_number)
+    ), linewidth = 1) +
+    xlim(c(-4, 4)) +
+    #scale_linetype_manual (values = c("dashed", "solid")) +
+    xlab("Parameter p") +
+    ylab("Equilibria x*") +
+    guides(linetype = "none"))
+
+ggsave("../../figures/subcritical_pitchfork.png",
+       p,
+       height = 3,
+       width = 5,
+       bg = "white")
+
+sub_pitch_animation <- ggplot(pitchfork_sub) +
+  geom_vline(xintercept = 0, color = "gray70", linewidth = 1) +  
+  geom_hline(yintercept = 0, color = "gray70", linewidth = 1) +
+  geom_point(aes(eigenvalue_1, 0), size = 6) +
+  geom_point(aes(eigenvalue_2, 0), size = 6) +
+  ylab("Immaginary") +
+  xlab("Real") +
+  xlim(-4, 4) +
+  ylim(-1, 1) +
+  gganimate::transition_reveal(appear) 
+
+sub_pitch_anim <- gganimate::animate(sub_pitch_animation, 
+                                 fps = 20, 
+                                 duration = 5)
+
+gganimate::anim_save("../../figures/subcritical_pitchfork.gif",
+                     width = 5,
+                     height = 3,
+                     bg = "white")
+
+## Universal unfolding of pitchfork ----
+unfolding <- (read.csv("../../outputs/unfolding.csv",
+                      header = T) |>
+  as.data.table()
+  )[, ":="(eigenvalues = p + 2 * a * x - 3 * x^2)
+                   ][, ":="(is_stable = eigenvalues < 0)
+                     ][order(a, b, p, is_stable, x)
+                       ][, diff := p - shift(p), 
+                         by = list(a, b)
+                         ][, is_change := diff != shift(diff) & is_stable != shift(is_stable)]
+
+
+
+unfolding <- (read.csv("../../outputs/unfolding.csv",
+                       header = T) |>
+                as.data.table()
+)[, ":="(eigenvalues = p + 2 * a * x - 3 * x^2)
+][, ":="(is_stable = eigenvalues < 0)
+# identify branch id by takeing advantage of the fact that the stability switches every time a nullcline is crossed (from large x to small x) and the same x can be equilibria for multiple branches only when the branche changes stability
+][order(a, b, x, is_stable)
+  ][, id := rleid(is_stable),
+    list(a, b)]
+
+(p <- ggplot(unfolding) +
+  geom_path(aes(p, x, group = id, 
+                linetype = is_stable),
+            linewidth = 1) +
+  xlab("Parameter p") +
+  ylab("Equilibria x*") +
+    scale_linetype_manual(values = c("dashed", "solid")) +
+  guides(linetype = "none") +
+  facet_grid(cols = vars(a),
+             rows = vars(b)))
+
+ggsave("../../figures/unfolding.png",
+       p,
+       height = 9,
+       width = 9,
+       bg = "white")
+
+
+
+
+# Selective ultra-sensitivity ----
+dt <- 0.5
+nZ <- 201
+
+RA_alligned <- (read.csv("../../outputs/selective_ultrasensitivity/RA_alligned.csv",
+                         header = F) |>
+                       as.data.table() |>
+                       setnames(old = 1:nZ,
+                                new = paste0("z_", 1:nZ))
+)[, ":="(time = ((1:.N)-1) * dt)]
+
+RA_alligned_l <- (RA_alligned |>
+                         tidyr::pivot_longer(cols = contains("z"),
+                                             names_to = "z_id",
+                                             values_to = "z") |>
+                         as.data.table()
+)[, ":="(theta_index = as.numeric(sub("z_", "", z_id)))
+][, ":="(theta = seq(-pi, pi, by = 2*pi/nZ)[theta_index])]
+
+RA_disalligned <- (read.csv("../../outputs/selective_ultrasensitivity/RA_disalligned.csv",
+                         header = F) |>
+                  as.data.table() |>
+                  setnames(old = 1:nZ,
+                           new = paste0("z_", 1:nZ))
+)[, ":="(time = ((1:.N)-1) * dt)]
+
+RA_disalligned_l <- (RA_disalligned |>
+                    tidyr::pivot_longer(cols = contains("z"),
+                                        names_to = "z_id",
+                                        values_to = "z") |>
+                    as.data.table()
+)[, ":="(theta_index = as.numeric(sub("z_", "", z_id)))
+][, ":="(theta = seq(-pi, pi, by = 2*pi/nZ)[theta_index])]
+
+input_alligned <- (read.csv("../../outputs/selective_ultrasensitivity/alligned.csv",
+                            header = F) |>
+                     setnames(old = 1,
+                              new = "input") |>
+                     as.data.table()
+                   )[, ":="(theta_index = 1:.N)
+                              ][, ":="(theta = seq(-pi, pi, by = 2*pi/nZ)[theta_index])]
+
+input_disalligned <- (read.csv("../../outputs/selective_ultrasensitivity/disalligned.csv",
+                            header = F) |>
+                     setnames(old = 1,
+                              new = "input") |>
+                     as.data.table()
+)[, ":="(theta_index = 1:.N)
+][, ":="(theta = seq(-pi, pi, by = 2*pi/nZ)[theta_index])]
+
+(p <- ggplot(input_alligned) +
+    geom_point(aes(input, theta)) +
+    ylab("Direction \u03B8") +
+    scale_x_continuous(breaks = c(-0.01, 0, 0.01),
+                       limits = c(-0.01, 0.01)) +    xlab("Input"))
+
+(p1 <- ggplot(RA_alligned_l) +
+    geom_tile(aes(time, theta,
+                  fill = z)) +
+    ylab("Direction \u03B8") +
+    xlab("Time") +
+    theme(axis.title.y = element_blank()) +
+    scale_fill_viridis_c(name = "Activation z",
+                         limits = c(-0.1, 2)))
+
+(part1 <- ggpubr::ggarrange(p, p1,
+          widths = c(0.4, 1)))
+
+(p <- ggplot(input_disalligned) +
+    geom_point(aes(input, theta)) +
+    ylab("Direction \u03B8") +
+    scale_x_continuous(breaks = c(-0.01, 0, 0.01),
+                       limits = c(-0.01, 0.01)) +
+    xlab("Input"))
+
+(p1 <- ggplot(RA_disalligned_l) +
+    geom_tile(aes(time, theta,
+                  fill = z)) +
+    ylab("Direction \u03B8") +
+    xlab("Time") +
+    theme(axis.title.y = element_blank()) +
+    scale_fill_viridis_c(name = "Activation z",
+                         limits = c(-0.1, 2)))
+
+(part2 <- ggpubr::ggarrange(p, p1,
+                            widths = c(0.4, 1)))
+
+(p <- ggpubr::ggarrange(part2, part1,
+                            nrow = 2))
+
+ggsave("../../figures/selective_ultrasensitivity.png",
+       p,
+       width = 8,
+       height = 6,
+       bg = "white")
+
